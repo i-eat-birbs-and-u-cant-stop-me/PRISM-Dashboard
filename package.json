@@ -1,0 +1,16 @@
+{
+  "name": "prism-desktop",
+  "version": "1.0.0",
+  "description": "P.R.I.S.M. desktop app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^31.7.1"
+  },
+  "allowScripts": {
+    "electron@31.7.7": true
+  }
+}

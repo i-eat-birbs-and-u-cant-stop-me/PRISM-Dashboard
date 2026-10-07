@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>P.R.I.S.M. Dashboard</title>
+    <meta
+      name="description"
+      content="Personal Routine Interface for Student Management"
+    />
+    <link rel="stylesheet" href="style.css?v=20260930-2" />
+    <script>
+      window.__PRISM_GOOGLE_CLIENT_ID__ = "170006870019-ckb9b2mvfaqhcvchdj64gd251s02k3bt.apps.googleusercontent.com";
+      window.__PRISM_GOOGLE_AUTH_ENABLED__ = true;
+    </script>
+  </head>
+  <body>
+    <div id="auth-screen" class="auth-screen" aria-label="Account setup">
+      <div class="auth-panel">
+        <div class="auth-badge">[ ACCOUNT BOOTSTRAP ]</div>
+        <h1>Welcome to P.R.I.S.M.</h1>
+        <p>Set up your profile so your dashboard feels like yours.</p>
+
+        <button id="google-login" class="google-button" type="button">
+          Continue with Google
+        </button>
+        <p id="auth-message" class="auth-message" role="alert" hidden></p>
+
+        <form id="profile-form" class="profile-form">
+          <label>
+            Full name
+            <input id="profile-name" type="text" name="name" placeholder="Alex Carter" required />
+          </label>
+
+          <div class="two-column">
+            <label>
+              School
+              <input id="profile-school" type="text" name="school" placeholder="North Ridge High" required />
+            </label>
+
+            <label>
+              Grade
+              <input id="profile-grade" type="text" name="grade" placeholder="11th Grade" required />
+            </label>
+          </div>
+
+          <label>
+            Focus goal
+            <textarea id="profile-goal" name="goal" rows="3" placeholder="Finish chemistry prep and stay consistent with coding practice."></textarea>
+          </label>
+
+          <button type="submit" class="primary-button">Enter Dashboard</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="app-shell">
+      <header class="system-header" aria-label="System header">
+        <div class="header-left">
+          <span class="brand">P.R.I.S.M.</span>
+          <span id="account-name" class="account-name">Guest</span>
+        </div>
+
+        <div class="header-center" aria-live="polite">
+          [ INITIALIZING P.R.I.S.M. CORE ENGINE v1.0 ]
+        </div>
+
+        <div class="header-right">
+          <div class="profile-summary" aria-label="Student profile summary">
+            <span id="profile-school-tag" class="profile-school-tag">School</span>
+            <button id="settings-button" class="header-button" type="button">Settings</button>
+            <button id="logout-button" class="header-button" type="button">Logout</button>
+            <button id="reset-profile-button" class="header-button danger" type="button">Reset</button>
+          </div>
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>SYSTEM ONLINE</span>
+        </div>
+      </header>
+
+      <div id="settings-dropdown" class="settings-dropdown hidden" aria-label="Settings menu">
+        <div class="settings-menu-header">
+          <span>System Menu</span>
+          <button id="close-settings" class="close-button" type="button" aria-label="Close settings">×</button>
+        </div>
+
+        <div class="settings-menu-items">
+          <button type="button" class="menu-item active" data-panel="profile">Profile</button>
+          <button type="button" class="menu-item" data-panel="schedule">Schedule</button>
+          <button type="button" class="menu-item" data-panel="links">Links</button>
+          <button type="button" class="menu-item" data-panel="themes">Themes</button>
+          <button type="button" class="menu-item" data-panel="system-logs">System Logs</button>
+        </div>
+
+        <form id="settings-form" class="settings-panel active" data-panel="profile">
+          <label>
+            Full name
+            <input id="settings-name" type="text" name="name" placeholder="Alex Carter" />
+          </label>
+
+          <div class="two-column">
+            <label>
+              School
+              <input id="settings-school" type="text" name="school" placeholder="North Ridge High" />
+            </label>
+
+            <label>
+              Grade
+              <input id="settings-grade" type="text" name="grade" placeholder="11th Grade" />
+            </label>
+          </div>
+
+          <label>
+            Focus goal
+            <textarea id="settings-goal" name="goal" rows="3" placeholder="Describe your focus goal..."></textarea>
+          </label>
+
+          <div class="settings-actions">
+            <button type="submit" class="primary-button">Save Settings</button>
+          </div>
+        </form>
+
+        <div id="schedule-panel" class="settings-panel" data-panel="schedule" aria-label="Schedule panel">
+          <div class="settings-panel-block">
+            <h3>Daily schedule</h3>
+            <ul class="mini-list">
+              <li><span>08:00</span><strong>Morning review</strong></li>
+              <li><span>09:30</span><strong>Math class</strong></li>
+              <li><span>11:00</span><strong>Science lab</strong></li>
+              <li><span>13:00</span><strong>Lunch + reset</strong></li>
+              <li><span>15:00</span><strong>Code practice</strong></li>
+              <li><span>18:30</span><strong>Homework block</strong></li>
+            </ul>
+          </div>
+        </div>
+
+        <div id="links-panel" class="settings-panel" data-panel="links" aria-label="Links panel">
+          <div class="settings-panel-block">
+            <h3>Google Classroom</h3>
+            <p id="classroom-status" class="integration-status" aria-live="polite">Not connected</p>
+            <div class="settings-actions">
+              <button id="classroom-sync-button" type="button" class="primary-button">Connect Google Classroom</button>
+            </div>
+          </div>
+
+          <div class="settings-panel-block">
+            <h3>Other school links</h3>
+            <form id="links-form" class="link-form">
+              <label>
+                Site name
+                <input id="link-name" type="text" name="link-name" placeholder="School portal" maxlength="40" />
+              </label>
+              <label>
+                URL
+                <input id="link-url" type="url" name="link-url" placeholder="https://school.example.com" />
+              </label>
+              <div class="settings-actions">
+                <button type="submit" class="primary-button">Add Link</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="settings-panel-block">
+            <h3>Saved links</h3>
+            <ul id="saved-links-list" class="saved-links-list" aria-live="polite"></ul>
+          </div>
+        </div>
+
+        <div id="themes-panel" class="settings-panel" data-panel="themes" aria-label="Themes panel">
+          <div class="settings-panel-block">
+            <h3>Theme presets</h3>
+            <div class="theme-options" aria-label="Theme selection">
+              <button type="button" class="theme-option active" data-theme="cyberpunk">
+                <span class="swatch swatch-cyberpunk"></span>
+                Cyberpunk
+              </button>
+              <button type="button" class="theme-option" data-theme="violet">
+                <span class="swatch swatch-violet"></span>
+                Violet
+              </button>
+              <button type="button" class="theme-option" data-theme="sunset">
+                <span class="swatch swatch-sunset"></span>
+                Sunset
+              </button>
+              <button type="button" class="theme-option" data-theme="midnight">
+                <span class="swatch swatch-midnight"></span>
+                Midnight
+              </button>
+              <button type="button" class="theme-option" data-theme="neon-green">
+                <span class="swatch swatch-neon-green"></span>
+                Neon Green
+              </button>
+              <button type="button" class="theme-option" data-theme="ice-blue">
+                <span class="swatch swatch-ice-blue"></span>
+                Ice Blue
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="system-logs-panel" class="settings-panel" data-panel="system-logs" aria-label="System logs panel">
+          <div class="settings-panel-block">
+            <h3>System logs</h3>
+            <ul class="log-list">
+              <li>Boot sequence complete.</li>
+              <li>Profile sync verified.</li>
+              <li>Clock initialized in 12-hour mode.</li>
+              <li>Theme system ready.</li>
+              <li>Student dashboard online.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <section class="profile-panel panel" aria-label="Student info panel">
+        <div class="panel-label">STUDENT PROFILE</div>
+        <div class="profile-overview">
+          <div>
+            <span class="mini-label">Operator</span>
+            <strong id="profile-name-card">Student</strong>
+          </div>
+          <div>
+            <span class="mini-label">School</span>
+            <strong id="profile-school-card">School</strong>
+          </div>
+          <div>
+            <span class="mini-label">Grade</span>
+            <strong id="profile-grade-card">Grade</strong>
+          </div>
+          <div>
+            <span class="mini-label">Focus</span>
+            <strong id="profile-goal-card">Stay consistent</strong>
+          </div>
+        </div>
+      </section>
+
+      <main class="dashboard-grid">
+        <section class="panel panel-clock" aria-labelledby="clock-heading">
+          <div class="panel-label" id="clock-heading">CORE CLOCK</div>
+          <div id="clock" class="clock-time">--:--:--</div>
+          <div id="greeting" class="greeting">Initializing...</div>
+          <div id="date" class="date-text">Loading date...</div>
+        </section>
+
+        <section class="panel panel-todo" aria-labelledby="todo-heading">
+          <div class="panel-label" id="todo-heading">STUDENT TASK MATRIX</div>
+
+          <ul id="todo-list" class="todo-list" aria-live="polite"></ul>
+
+          <form id="todo-form" class="todo-form">
+            <div class="todo-form-inner">
+              <input
+                id="todo-input"
+                type="text"
+                maxlength="80"
+                placeholder="Add a homework task..."
+                aria-label="Add a new homework task"
+              />
+              <div class="todo-meta-row">
+                <input
+                  id="todo-subject"
+                  type="text"
+                  maxlength="30"
+                  placeholder="Class / subject"
+                  aria-label="Class or subject"
+                />
+                <input
+                  id="todo-date"
+                  type="date"
+                  aria-label="Due date"
+                />
+              </div>
+            </div>
+            <button type="submit">ADD</button>
+          </form>
+        </section>
+
+        <section class="panel panel-launch" aria-labelledby="launch-heading">
+          <div class="panel-label" id="launch-heading">QUICK LAUNCH</div>
+
+          <nav id="launch-links" class="launch-grid" aria-label="Quick launch shortcuts"></nav>
+        </section>
+      </main>
+
+      <section class="module-grid" aria-label="Academic widgets">
+        <section class="panel panel-focus" aria-labelledby="focus-heading">
+          <div class="panel-label" id="focus-heading">SUBJECT FOCUS</div>
+
+          <div class="subject-list">
+            <div class="subject-item">
+              <div class="subject-topline">
+                <span>Math</span>
+                <span>78%</span>
+              </div>
+              <div class="progress-bar"><span style="width: 78%"></span></div>
+            </div>
+
+            <div class="subject-item">
+              <div class="subject-topline">
+                <span>Science</span>
+                <span>65%</span>
+              </div>
+              <div class="progress-bar"><span style="width: 65%"></span></div>
+            </div>
+
+            <div class="subject-item">
+              <div class="subject-topline">
+                <span>Literature</span>
+                <span>82%</span>
+              </div>
+              <div class="progress-bar"><span style="width: 82%"></span></div>
+            </div>
+
+            <div class="subject-item">
+              <div class="subject-topline">
+                <span>Code Lab</span>
+                <span>91%</span>
+              </div>
+              <div class="progress-bar"><span style="width: 91%"></span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel panel-schedule" aria-labelledby="schedule-heading">
+          <div class="panel-label" id="schedule-heading">DAILY SCHEDULE</div>
+
+          <ul class="schedule-list">
+            <li><span class="time">08:00</span><span class="event">Morning review</span></li>
+            <li><span class="time">09:30</span><span class="event">Math class</span></li>
+            <li><span class="time">11:00</span><span class="event">Science lab</span></li>
+            <li><span class="time">13:00</span><span class="event">Lunch + reset</span></li>
+            <li><span class="time">15:00</span><span class="event">Code practice</span></li>
+            <li><span class="time">18:30</span><span class="event">Homework block</span></li>
+          </ul>
+        </section>
+
+        <section class="panel panel-deadlines" aria-labelledby="deadlines-heading">
+          <div class="panel-label" id="deadlines-heading">UPCOMING DEADLINES</div>
+
+          <ul class="deadline-list">
+            <li><span>Algebra quiz</span><strong>Thu 4:00 PM</strong></li>
+            <li><span>Lab report</span><strong>Fri 9:15 AM</strong></li>
+            <li><span>Essay draft</span><strong>Mon 2:30 PM</strong></li>
+            <li><span>GitHub task</span><strong>Wed 7:00 PM</strong></li>
+          </ul>
+        </section>
+
+        <section class="panel panel-priority" aria-labelledby="priority-heading">
+          <div class="panel-label" id="priority-heading">TODAY'S PRIORITIES</div>
+
+          <ul id="priority-list" class="priority-list" aria-live="polite">
+            <li><input type="checkbox" checked /> <span>Finish math worksheet</span></li>
+            <li><input type="checkbox" /> <span>Review chemistry notes</span></li>
+            <li><input type="checkbox" /> <span>Push code project update</span></li>
+            <li><input type="checkbox" /> <span>Prep for lab discussion</span></li>
+          </ul>
+        </section>
+
+        <section class="panel panel-notes" aria-labelledby="notes-heading">
+          <div class="panel-label" id="notes-heading">CLASS NOTES</div>
+
+          <textarea
+            id="notes-input"
+            class="notes-input"
+            aria-label="Class notes"
+            placeholder="Write your focus notes here..."
+          ></textarea>
+        </section>
+      </section>
+    </div>
+
+    <script src="script.js?v=20260930-4"></script>
+  </body>
+</html>
