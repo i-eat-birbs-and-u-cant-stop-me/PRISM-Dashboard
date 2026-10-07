@@ -726,9 +726,10 @@ body.dashboard-ready .auth-screen {
 
 .todo-left {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   min-width: 0;
+  flex: 1;
 }
 
 .todo-checkbox {
@@ -758,6 +759,44 @@ body.dashboard-ready .auth-screen {
   color: var(--muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.classroom-submission-status {
+  color: var(--green);
+}
+
+.todo-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.todo-description {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.todo-materials {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.todo-materials a {
+  color: var(--green);
+  overflow-wrap: anywhere;
+}
+
+.todo-materials a:hover {
+  color: var(--text);
 }
 
 .todo-item.done .todo-text {
