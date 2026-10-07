@@ -103,14 +103,26 @@ function renderTodos() {
     checkbox.type = "checkbox";
     checkbox.className = "todo-checkbox";
     checkbox.checked = item.done;
-    checkbox.addEventListener("change", () => {
-      const currentTodos = getTodos();
-      const updatedTodos = currentTodos.map((todo) =>
-        todo.id === item.id ? { ...todo, done: !todo.done } : todo
-      );
-      saveTodos(updatedTodos);
-      renderTodos();
-    });
+    if (item.source === "classroom") {
+      checkbox.setAttribute("aria-label", `Check submission status: ${item.text}`);
+      checkbox.addEventListener("change", () => {
+        checkbox.checked = item.done;
+        checkbox.disabled = true;
+        verifyClassroomSubmission(item).finally(() => {
+          checkbox.disabled = false;
+        });
+      });
+    } else {
+      checkbox.addEventListener("change", () => {
+        const done = checkbox.checked;
+        const currentTodos = getTodos();
+        const updatedTodos = currentTodos.map((todo) =>
+          todo.id === item.id ? { ...todo, done } : todo
+        );
+        saveTodos(updatedTodos);
+        renderTodos();
+      });
+    }
 
     const textWrap = document.createElement("div");
     textWrap.className = "todo-text-wrap";
@@ -134,9 +146,55 @@ function renderTodos() {
       meta.appendChild(due);
     }
 
+    if (item.source === "classroom") {
+      const submissionStatus = document.createElement("span");
+      submissionStatus.className = "classroom-submission-status";
+      submissionStatus.textContent = getSubmissionStatusLabel(item.submissionState);
+      meta.appendChild(submissionStatus);
+    }
+
     textWrap.appendChild(text);
     if (meta.childNodes.length) {
       textWrap.appendChild(meta);
+    }
+
+    if (item.source === "classroom" && (item.description || item.materials?.length)) {
+      const details = document.createElement("div");
+      details.className = "todo-details";
+
+      if (item.description) {
+        const description = document.createElement("p");
+        description.className = "todo-description";
+        description.textContent = item.description;
+        details.appendChild(description);
+      }
+
+      if (item.materials?.length) {
+        const materials = document.createElement("ul");
+        materials.className = "todo-materials";
+        item.materials.forEach((material) => {
+          const materialUrl = getSafeMaterialUrl(material.url);
+          if (!materialUrl) {
+            return;
+          }
+
+          const listItem = document.createElement("li");
+          const link = document.createElement("a");
+          link.href = materialUrl;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = material.title || materialUrl;
+          listItem.appendChild(link);
+          materials.appendChild(listItem);
+        });
+        if (materials.childNodes.length) {
+          details.appendChild(materials);
+        }
+      }
+
+      if (details.childNodes.length) {
+        textWrap.appendChild(details);
+      }
     }
 
     const deleteButton = document.createElement("button");
@@ -156,6 +214,33 @@ function renderTodos() {
     li.appendChild(deleteButton);
     todoList.appendChild(li);
   });
+}
+
+function getSubmissionStatusLabel(state) {
+  if (state === "TURNED_IN") {
+    return "Turned in";
+  }
+  if (state === "RETURNED") {
+    return "Returned";
+  }
+  return "Not turned in";
+}
+
+function isClassroomWorkSubmitted(state) {
+  return state === "TURNED_IN" || state === "RETURNED";
+}
+
+function getSafeMaterialUrl(value) {
+  if (!value) {
+    return "";
+  }
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : "";
+  } catch (error) {
+    return "";
+  }
 }
 
 function addTodo(event) {
@@ -447,7 +532,8 @@ function buildGoogleAuthUrl(state, purpose) {
   const scopes = purpose === "classroom"
     ? [
         "https://www.googleapis.com/auth/classroom.courses.readonly",
-        "https://www.googleapis.com/auth/classroom.coursework.me.readonly"
+        "https://www.googleapis.com/auth/classroom.coursework.me.readonly",
+        "https://www.googleapis.com/auth/classroom.student-submissions.me.readonly"
       ].join(" ")
     : "openid email profile";
   const params = new URLSearchParams({
@@ -627,7 +713,9 @@ async function fetchClassroomPage(url, accessToken) {
     if (response.status === 401) {
       localStorage.removeItem(CLASSROOM_TOKEN_KEY);
     }
-    throw new Error(result.error?.message || `Classroom API error (${response.status})`);
+    const error = new Error(result.error?.message || `Classroom API error (${response.status})`);
+    error.status = response.status;
+    throw error;
   }
 
   return result;
@@ -639,7 +727,7 @@ async function fetchAllClassroomItems(url, accessToken) {
 
   while (pageUrl) {
     const result = await fetchClassroomPage(pageUrl.toString(), accessToken);
-    items.push(...(result.courses || result.courseWork || []));
+    items.push(...(result.courses || result.courseWork || result.studentSubmissions || []));
     if (result.nextPageToken) {
       pageUrl.searchParams.set("pageToken", result.nextPageToken);
     } else {
@@ -648,6 +736,82 @@ async function fetchAllClassroomItems(url, accessToken) {
   }
 
   return items;
+}
+
+function getClassroomCourseworkUrl(courseId, courseworkId, collection) {
+  return `https://classroom.googleapis.com/v1/courses/${encodeURIComponent(courseId)}/courseWork/${encodeURIComponent(courseworkId)}/${collection}`;
+}
+
+async function getClassroomSubmission(courseId, courseworkId, accessToken) {
+  const submissionsUrl = new URL(
+    getClassroomCourseworkUrl(courseId, courseworkId, "studentSubmissions")
+  );
+  submissionsUrl.searchParams.set("userId", "me");
+  submissionsUrl.searchParams.set("pageSize", "100");
+  const submissions = await fetchAllClassroomItems(submissionsUrl.toString(), accessToken);
+  return submissions[0] || { state: "NEW" };
+}
+
+function normalizeCourseworkMaterials(materials = []) {
+  return materials.map((material) => {
+    if (material.driveFile?.driveFile) {
+      const file = material.driveFile.driveFile;
+      return { title: file.title || "Google Drive file", url: file.alternateLink || "" };
+    }
+    if (material.youtubeVideo) {
+      return {
+        title: material.youtubeVideo.title || "YouTube video",
+        url: material.youtubeVideo.alternateLink || material.youtubeVideo.url || ""
+      };
+    }
+    if (material.link) {
+      return { title: material.link.title || material.link.url || "Course link", url: material.link.url || "" };
+    }
+    if (material.form) {
+      return { title: material.form.title || "Google Form", url: material.form.formUrl || "" };
+    }
+    return null;
+  }).filter(Boolean);
+}
+
+async function verifyClassroomSubmission(todo) {
+  const accessToken = getClassroomAccessToken();
+  if (!accessToken) {
+    setClassroomStatus("Reconnect Google Classroom to check submission status.");
+    return;
+  }
+
+  setClassroomStatus(`Checking submission status for "${todo.text}"...`);
+  try {
+    const submission = await getClassroomSubmission(todo.courseId, todo.courseworkId, accessToken);
+    const currentTodos = getTodos();
+    const updatedTodos = currentTodos.map((item) => item.id === todo.id
+      ? {
+          ...item,
+          submissionState: submission.state || "NEW",
+          done: isClassroomWorkSubmitted(submission.state)
+        }
+      : item);
+    saveTodos(updatedTodos);
+    renderTodos();
+    setClassroomStatus(
+      isClassroomWorkSubmitted(submission.state)
+        ? `"${todo.text}" is marked ${getSubmissionStatusLabel(submission.state).toLowerCase()} in Google Classroom.`
+        : `"${todo.text}" has not been turned in in Google Classroom.`
+    );
+  } catch (error) {
+    console.error("Could not verify Google Classroom submission status.", error);
+    if (error.status === 401 || error.status === 403) {
+      localStorage.removeItem(CLASSROOM_TOKEN_KEY);
+      setClassroomStatus("Reconnect Google Classroom to grant assignment and submission access.");
+      const syncButton = document.getElementById("classroom-sync-button");
+      if (syncButton) {
+        syncButton.textContent = "Reconnect Google Classroom";
+      }
+    } else {
+      setClassroomStatus(`Could not check submission status: ${error.message}`);
+    }
+  }
 }
 
 async function syncClassroomAssignments() {
@@ -679,37 +843,42 @@ async function syncClassroomAssignments() {
       courseworkUrl.searchParams.set("pageSize", "100");
       const coursework = await fetchAllClassroomItems(courseworkUrl.toString(), accessToken);
 
-      coursework.forEach((work) => {
+      for (const work of coursework) {
         const dueDate = work.dueDate
           ? `${work.dueDate.year}-${String(work.dueDate.month).padStart(2, "0")}-${String(work.dueDate.day).padStart(2, "0")}`
           : "";
+        const submission = await getClassroomSubmission(course.id, work.id, accessToken);
+        const submissionState = submission.state || "NEW";
         assignments.push({
           id: `classroom:${course.id}:${work.id}`,
           text: work.title || "Class assignment",
           subject: course.name || "Google Classroom",
           dueDate,
-          done: false,
+          description: work.description || "",
+          materials: normalizeCourseworkMaterials(work.materials),
+          courseId: course.id,
+          courseworkId: work.id,
+          submissionState,
+          done: isClassroomWorkSubmitted(submissionState),
           source: "classroom",
           assignmentUrl: work.alternateLink || "https://classroom.google.com"
         });
-      });
+      }
     }
 
     const priorTodos = getTodos();
-    const priorAssignments = new Map(
-      priorTodos.filter((todo) => todo.source === "classroom").map((todo) => [todo.id, todo])
-    );
-    const syncedAssignments = assignments.map((assignment) => ({
-      ...assignment,
-      done: priorAssignments.get(assignment.id)?.done || false
-    }));
     const manualTodos = priorTodos.filter((todo) => todo.source !== "classroom");
-    saveTodos([...manualTodos, ...syncedAssignments]);
+    saveTodos([...manualTodos, ...assignments]);
     renderTodos();
-    setClassroomStatus(`Synced ${syncedAssignments.length} assignment${syncedAssignments.length === 1 ? "" : "s"}.`);
+    setClassroomStatus(`Synced ${assignments.length} assignment${assignments.length === 1 ? "" : "s"}.`);
   } catch (error) {
     console.error("Google Classroom sync failed.", error);
-    setClassroomStatus(`Sync failed: ${error.message}`);
+    if (error.status === 401 || error.status === 403) {
+      localStorage.removeItem(CLASSROOM_TOKEN_KEY);
+      setClassroomStatus("Reconnect Google Classroom to grant assignment and submission access.");
+    } else {
+      setClassroomStatus(`Sync failed: ${error.message}`);
+    }
   } finally {
     if (syncButton) {
       syncButton.disabled = false;
