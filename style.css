@@ -899,6 +899,21 @@ body.dashboard-ready .auth-screen {
   gap: 18px;
 }
 
+.subject-focus-note,
+.subject-focus-empty {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.subject-focus-note {
+  margin: 0 0 16px;
+}
+
+.subject-focus-empty {
+  margin: 0;
+}
+
 .subject-item {
   display: flex;
   flex-direction: column;
@@ -926,6 +941,13 @@ body.dashboard-ready .auth-screen {
   height: 100%;
   background: linear-gradient(90deg, var(--green), var(--cyan));
   box-shadow: 0 0 12px rgba(94, 242, 201, 0.4);
+}
+
+.subject-focus-assignment {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
 }
 
 .schedule-list,

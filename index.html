@@ -8,7 +8,7 @@
       name="description"
       content="Personal Routine Interface for Student Management"
     />
-    <link rel="stylesheet" href="style.css?v=20261007-3" />
+    <link rel="stylesheet" href="style.css?v=20261007-4" />
     <script>
       window.__PRISM_GOOGLE_CLIENT_ID__ = "170006870019-ckb9b2mvfaqhcvchdj64gd251s02k3bt.apps.googleusercontent.com";
       window.__PRISM_GOOGLE_AUTH_ENABLED__ = true;
@@ -325,39 +325,10 @@
         <section class="panel panel-focus" aria-labelledby="focus-heading">
           <div class="panel-label" id="focus-heading">SUBJECT FOCUS</div>
 
-          <div class="subject-list">
-            <div class="subject-item">
-              <div class="subject-topline">
-                <span>Math</span>
-                <span>78%</span>
-              </div>
-              <div class="progress-bar"><span style="width: 78%"></span></div>
-            </div>
-
-            <div class="subject-item">
-              <div class="subject-topline">
-                <span>Science</span>
-                <span>65%</span>
-              </div>
-              <div class="progress-bar"><span style="width: 65%"></span></div>
-            </div>
-
-            <div class="subject-item">
-              <div class="subject-topline">
-                <span>Literature</span>
-                <span>82%</span>
-              </div>
-              <div class="progress-bar"><span style="width: 82%"></span></div>
-            </div>
-
-            <div class="subject-item">
-              <div class="subject-topline">
-                <span>Code Lab</span>
-                <span>91%</span>
-              </div>
-              <div class="progress-bar"><span style="width: 91%"></span></div>
-            </div>
-          </div>
+          <p class="subject-focus-note">
+            The nearest unsubmitted assignment's share of all listed points in each class.
+          </p>
+          <div id="subject-list" class="subject-list" aria-live="polite"></div>
         </section>
 
         <section class="panel panel-schedule" aria-labelledby="schedule-heading">
@@ -408,6 +379,6 @@
       </section>
     </div>
 
-    <script src="script.js?v=20261007-3"></script>
+    <script src="script.js?v=20261007-4"></script>
   </body>
 </html>
