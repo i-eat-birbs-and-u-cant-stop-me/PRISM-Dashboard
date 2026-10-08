@@ -29,6 +29,21 @@ function saveProfile(profile) {
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
 }
 
+function setGradeSelectValue(select, grade) {
+  if (!select || !grade) {
+    return;
+  }
+
+  if (![...select.options].some((option) => option.value === grade)) {
+    const legacyOption = document.createElement("option");
+    legacyOption.value = grade;
+    legacyOption.textContent = grade;
+    select.appendChild(legacyOption);
+  }
+
+  select.value = grade;
+}
+
 function getTodos() {
   const saved = localStorage.getItem(STORAGE_KEY);
 
@@ -955,7 +970,7 @@ function openSettings() {
 
   document.getElementById("settings-name").value = profile.name || "";
   document.getElementById("settings-school").value = profile.school || "";
-  document.getElementById("settings-grade").value = profile.grade || "";
+  setGradeSelectValue(document.getElementById("settings-grade"), profile.grade || "");
   document.getElementById("settings-goal").value = profile.goal || "";
 
   dropdown.classList.remove("hidden");
