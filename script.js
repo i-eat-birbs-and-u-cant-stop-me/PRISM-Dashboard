@@ -1240,11 +1240,6 @@ function initializeProfileSetup() {
 
   if (existingProfile) {
     showDashboard(existingProfile);
-
-    if (window.matchMedia("(prefers-reduced-motion: no-preference)").matches) {
-      setTimeout(openSettings, 400);
-    }
-
     return;
   }
 
@@ -1265,7 +1260,6 @@ function initializeProfileSetup() {
 
     saveProfile(profile);
     showDashboard(profile);
-    setTimeout(openSettings, 300);
   });
 }
 

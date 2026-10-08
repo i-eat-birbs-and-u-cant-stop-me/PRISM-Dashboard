@@ -29,7 +29,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   app.setLoginItemSettings({
-    openAtLogin: true,
+    openAtLogin: false,
     openAsHidden: false
   });
 
