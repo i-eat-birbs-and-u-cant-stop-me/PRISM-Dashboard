@@ -229,6 +229,113 @@ function renderTodos() {
     li.appendChild(deleteButton);
     todoList.appendChild(li);
   });
+
+  renderSubjectFocus(todoItems);
+}
+
+function formatPoints(points) {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(points);
+}
+
+function renderSubjectFocus(todoItems = getTodos()) {
+  const subjectList = document.getElementById("subject-list");
+  if (!subjectList) {
+    return;
+  }
+
+  const courses = new Map();
+  todoItems.forEach((item) => {
+    if (item.source !== "classroom" || !item.courseId) {
+      return;
+    }
+
+    if (!courses.has(item.courseId)) {
+      courses.set(item.courseId, {
+        name: item.subject || "Google Classroom",
+        totalPoints: 0,
+        upcomingAssignments: []
+      });
+    }
+
+    const course = courses.get(item.courseId);
+    const points = Number(item.maxPoints);
+    if (Number.isFinite(points) && points > 0) {
+      course.totalPoints += points;
+    }
+
+    const dueTimestamp = item.dueDate
+      ? new Date(`${item.dueDate}T00:00:00`).getTime()
+      : Number.NaN;
+    if (Number.isFinite(dueTimestamp) && !item.done) {
+      course.upcomingAssignments.push({ ...item, dueTimestamp, points });
+    }
+  });
+
+  subjectList.replaceChildren();
+  const rows = [...courses.values()]
+    .map((course) => {
+      course.upcomingAssignments.sort((a, b) => a.dueTimestamp - b.dueTimestamp);
+      return { ...course, nextAssignment: course.upcomingAssignments[0] };
+    })
+    .filter((course) => course.nextAssignment)
+    .sort((a, b) => a.nextAssignment.dueTimestamp - b.nextAssignment.dueTimestamp);
+
+  if (!rows.length) {
+    const message = document.createElement("p");
+    message.className = "subject-focus-empty";
+    message.textContent = courses.size
+      ? "No unsubmitted Classroom assignments with a due date."
+      : "Sync Google Classroom to see upcoming scored assignments.";
+    subjectList.appendChild(message);
+    return;
+  }
+
+  rows.forEach((course) => {
+    const { nextAssignment } = course;
+    const percentage = course.totalPoints > 0
+      && Number.isFinite(nextAssignment.points)
+      && nextAssignment.points > 0
+      ? (nextAssignment.points / course.totalPoints) * 100
+      : 0;
+    const formattedPercentage = percentage < 0.1 && percentage > 0
+      ? "<0.1%"
+      : `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(percentage)}%`;
+
+    const item = document.createElement("div");
+    item.className = "subject-item";
+
+    const topline = document.createElement("div");
+    topline.className = "subject-topline";
+
+    const subject = document.createElement("span");
+    subject.textContent = course.name;
+    const amount = document.createElement("span");
+    amount.textContent = course.totalPoints > 0 ? formattedPercentage : "No points data";
+    topline.append(subject, amount);
+
+    const progress = document.createElement("div");
+    progress.className = "progress-bar";
+    progress.setAttribute("role", "progressbar");
+    progress.setAttribute("aria-label", `${course.name} next assignment share of listed points`);
+    progress.setAttribute("aria-valuemin", "0");
+    progress.setAttribute("aria-valuemax", "100");
+    progress.setAttribute("aria-valuenow", String(percentage));
+    const fill = document.createElement("span");
+    fill.style.width = `${Math.min(percentage, 100)}%`;
+    progress.appendChild(fill);
+
+    const assignment = document.createElement("p");
+    assignment.className = "subject-focus-assignment";
+    assignment.textContent = `${nextAssignment.text} · Due ${formatDueDate(nextAssignment.dueDate)}`;
+    if (Number.isFinite(nextAssignment.points) && nextAssignment.points > 0) {
+      assignment.textContent += ` · ${formatPoints(nextAssignment.points)} of ${formatPoints(course.totalPoints)} pts`;
+    } else {
+      assignment.textContent += " · No point value";
+    }
+
+    item.append(topline, progress, assignment);
+    subjectList.appendChild(item);
+  });
 }
 
 function getSubmissionStatusLabel(state) {
@@ -869,6 +976,7 @@ async function syncClassroomAssignments() {
           text: work.title || "Class assignment",
           subject: course.name || "Google Classroom",
           dueDate,
+          maxPoints: Number.isFinite(work.maxPoints) ? work.maxPoints : 0,
           description: work.description || "",
           materials: normalizeCourseworkMaterials(work.materials),
           courseId: course.id,
