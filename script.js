@@ -252,55 +252,49 @@ function renderSubjectFocus(todoItems = getTodos()) {
     if (!courses.has(item.courseId)) {
       courses.set(item.courseId, {
         name: item.subject || "Google Classroom",
-        totalPoints: 0,
-        upcomingAssignments: []
+        earnedPoints: 0,
+        possiblePoints: 0,
+        gradedAssignments: 0
       });
     }
 
     const course = courses.get(item.courseId);
     const points = Number(item.maxPoints);
-    if (Number.isFinite(points) && points > 0) {
-      course.totalPoints += points;
-    }
-
-    const dueTimestamp = item.dueDate
-      ? new Date(`${item.dueDate}T00:00:00`).getTime()
-      : Number.NaN;
-    if (Number.isFinite(dueTimestamp) && !item.done) {
-      course.upcomingAssignments.push({ ...item, dueTimestamp, points });
+    const grade = item.assignedGrade;
+    if (Number.isFinite(points) && points > 0 && Number.isFinite(grade)) {
+      course.earnedPoints += grade;
+      course.possiblePoints += points;
+      course.gradedAssignments += 1;
     }
   });
 
   subjectList.replaceChildren();
   const rows = [...courses.values()]
-    .map((course) => {
-      course.upcomingAssignments.sort((a, b) => a.dueTimestamp - b.dueTimestamp);
-      return { ...course, nextAssignment: course.upcomingAssignments[0] };
-    })
-    .filter((course) => course.nextAssignment)
-    .sort((a, b) => a.nextAssignment.dueTimestamp - b.nextAssignment.dueTimestamp);
+    .map((course) => ({
+      ...course,
+      percentage: course.possiblePoints > 0
+        ? (course.earnedPoints / course.possiblePoints) * 100
+        : null
+    }))
+    .sort((a, b) => {
+      if (a.percentage === null) {
+        return b.percentage === null ? a.name.localeCompare(b.name) : 1;
+      }
+      if (b.percentage === null) {
+        return -1;
+      }
+      return b.percentage - a.percentage || a.name.localeCompare(b.name);
+    });
 
   if (!rows.length) {
     const message = document.createElement("p");
     message.className = "subject-focus-empty";
-    message.textContent = courses.size
-      ? "No unsubmitted Classroom assignments with a due date."
-      : "Sync Google Classroom to see upcoming scored assignments.";
+    message.textContent = "Sync Google Classroom to see your current class grades.";
     subjectList.appendChild(message);
     return;
   }
 
   rows.forEach((course) => {
-    const { nextAssignment } = course;
-    const percentage = course.totalPoints > 0
-      && Number.isFinite(nextAssignment.points)
-      && nextAssignment.points > 0
-      ? (nextAssignment.points / course.totalPoints) * 100
-      : 0;
-    const formattedPercentage = percentage < 0.1 && percentage > 0
-      ? "<0.1%"
-      : `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(percentage)}%`;
-
     const item = document.createElement("div");
     item.className = "subject-item";
 
@@ -310,30 +304,33 @@ function renderSubjectFocus(todoItems = getTodos()) {
     const subject = document.createElement("span");
     subject.textContent = course.name;
     const amount = document.createElement("span");
-    amount.textContent = course.totalPoints > 0 ? formattedPercentage : "No points data";
+    amount.textContent = course.percentage === null
+      ? "No graded work"
+      : `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(course.percentage)}%`;
     topline.append(subject, amount);
 
     const progress = document.createElement("div");
     progress.className = "progress-bar";
     progress.setAttribute("role", "progressbar");
-    progress.setAttribute("aria-label", `${course.name} next assignment share of listed points`);
+    progress.setAttribute("aria-label", `${course.name} current points grade`);
     progress.setAttribute("aria-valuemin", "0");
     progress.setAttribute("aria-valuemax", "100");
-    progress.setAttribute("aria-valuenow", String(percentage));
+    if (course.percentage !== null) {
+      progress.setAttribute("aria-valuenow", String(Math.min(course.percentage, 100)));
+    } else {
+      progress.setAttribute("aria-valuetext", "No graded assignments");
+    }
     const fill = document.createElement("span");
-    fill.style.width = `${Math.min(percentage, 100)}%`;
+    fill.style.width = `${Math.min(course.percentage || 0, 100)}%`;
     progress.appendChild(fill);
 
-    const assignment = document.createElement("p");
-    assignment.className = "subject-focus-assignment";
-    assignment.textContent = `${nextAssignment.text} · Due ${formatDueDate(nextAssignment.dueDate)}`;
-    if (Number.isFinite(nextAssignment.points) && nextAssignment.points > 0) {
-      assignment.textContent += ` · ${formatPoints(nextAssignment.points)} of ${formatPoints(course.totalPoints)} pts`;
-    } else {
-      assignment.textContent += " · No point value";
-    }
+    const gradeDetails = document.createElement("p");
+    gradeDetails.className = "subject-focus-assignment";
+    gradeDetails.textContent = course.percentage === null
+      ? "No grades have been returned in Classroom yet."
+      : `${formatPoints(course.earnedPoints)} of ${formatPoints(course.possiblePoints)} points Â· ${course.gradedAssignments} graded assignment${course.gradedAssignments === 1 ? "" : "s"}`;
 
-    item.append(topline, progress, assignment);
+    item.append(topline, progress, gradeDetails);
     subjectList.appendChild(item);
   });
 }
@@ -911,6 +908,9 @@ async function verifyClassroomSubmission(todo) {
       ? {
           ...item,
           submissionState: submission.state || "NEW",
+          assignedGrade: Number.isFinite(submission.assignedGrade)
+            ? submission.assignedGrade
+            : null,
           done: isClassroomWorkSubmitted(submission.state)
         }
       : item);
@@ -977,6 +977,9 @@ async function syncClassroomAssignments() {
           subject: course.name || "Google Classroom",
           dueDate,
           maxPoints: Number.isFinite(work.maxPoints) ? work.maxPoints : 0,
+          assignedGrade: Number.isFinite(submission.assignedGrade)
+            ? submission.assignedGrade
+            : null,
           description: work.description || "",
           materials: normalizeCourseworkMaterials(work.materials),
           courseId: course.id,
