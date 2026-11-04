@@ -1,0 +1,16 @@
+name = "prism-layout-ai"
+main = "workers/layout-ai.mjs"
+compatibility_date = "2026-10-21"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGIN = "https://i-eat-birbs-and-u-cant-stop-me.github.io"
+GROQ_MODEL = "openai/gpt-oss-120b"
+
+[[ratelimits]]
+name = "LAYOUT_AI_LIMITER"
+namespace_id = "749311"
+
+  [ratelimits.simple]
+  limit = 12
+  period = 60

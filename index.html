@@ -8,10 +8,11 @@
       name="description"
       content="Personal Routine Interface for Student Management"
     />
-    <link rel="stylesheet" href="style.css?v=20261014-1" />
+    <link rel="stylesheet" href="style.css?v=20261104-shared-groq-ai" />
     <script>
       window.__PRISM_GOOGLE_CLIENT_ID__ = "170006870019-ckb9b2mvfaqhcvchdj64gd251s02k3bt.apps.googleusercontent.com";
       window.__PRISM_GOOGLE_AUTH_ENABLED__ = true;
+      window.__PRISM_LAYOUT_AI_ENDPOINT__ = "https://prism-layout-ai.giladcaldwell11.workers.dev/generate";
     </script>
   </head>
   <body>
@@ -108,6 +109,7 @@
           <button type="button" class="menu-item" data-panel="schedule">Schedule</button>
           <button type="button" class="menu-item" data-panel="links">Links</button>
           <button type="button" class="menu-item" data-panel="themes">Themes</button>
+          <button type="button" class="menu-item" data-panel="layout-assistant">Layout AI</button>
           <button type="button" class="menu-item" data-panel="system-logs">System Logs</button>
         </div>
 
@@ -162,14 +164,18 @@
         <div id="schedule-panel" class="settings-panel" data-panel="schedule" aria-label="Schedule panel">
           <div class="settings-panel-block">
             <h3>Daily schedule</h3>
-            <ul class="mini-list">
-              <li><span>08:00</span><strong>Morning review</strong></li>
-              <li><span>09:30</span><strong>Math class</strong></li>
-              <li><span>11:00</span><strong>Science lab</strong></li>
-              <li><span>13:00</span><strong>Lunch + reset</strong></li>
-              <li><span>15:00</span><strong>Code practice</strong></li>
-              <li><span>18:30</span><strong>Homework block</strong></li>
-            </ul>
+            <ul id="schedule-settings-list" class="mini-list schedule-settings-list" aria-live="polite"></ul>
+            <form id="schedule-form" class="schedule-form">
+              <label>
+                Time
+                <input id="schedule-time" type="time" required />
+              </label>
+              <label>
+                Activity
+                <input id="schedule-event" type="text" maxlength="60" placeholder="Class, study block, activity..." required />
+              </label>
+              <button type="submit" class="primary-button">Add to schedule</button>
+            </form>
           </div>
         </div>
 
@@ -234,6 +240,59 @@
                 Ice Blue
               </button>
             </div>
+          </div>
+          <div class="settings-panel-block">
+            <h3>Typeface</h3>
+            <label class="font-choice" for="font-choice">
+              Dashboard font
+              <select id="font-choice">
+                <option value="system">System Mono</option>
+                <option value="arial">Arial</option>
+                <option value="verdana">Verdana</option>
+                <option value="trebuchet">Trebuchet</option>
+                <option value="georgia">Georgia</option>
+                <option value="courier">Courier</option>
+              </select>
+            </label>
+            <p class="layout-assistant-description">Font choice is independent of the color theme.</p>
+          </div>
+        </div>
+
+        <div id="layout-assistant-panel" class="settings-panel" data-panel="layout-assistant" aria-label="Layout AI panel">
+          <div class="settings-panel-block">
+            <h3>Layout presets</h3>
+            <p class="layout-assistant-description">
+              Apply a ready-made layout instantly, or use the shared Groq AI service below to generate a custom layout or color theme.
+            </p>
+            <div class="layout-presets" aria-label="Layout presets">
+              <button type="button" class="layout-preset" data-layout-choice="balanced">Balanced</button>
+              <button type="button" class="layout-preset" data-layout-choice="compact">Compact</button>
+              <button type="button" class="layout-preset" data-layout-choice="spacious">Spacious</button>
+              <button type="button" class="layout-preset" data-layout-choice="two-column">Two columns</button>
+              <button type="button" class="layout-preset" data-layout-choice="one-column">One column</button>
+              <button type="button" class="layout-preset" data-layout-choice="schedule-focus">Wider schedule</button>
+            </div>
+          </div>
+          <div class="settings-panel-block">
+            <h3>AI-generated layout & theme</h3>
+            <p class="layout-assistant-description">
+              Uses the shared P.R.I.S.M. AI service to generate a safe CSS override for this browser. Try “a warm ginger-cat theme” or describe a layout. Requests are sent to the service; do not enter homework questions or personal information.
+            </p>
+            <form id="layout-assistant-form" class="layout-assistant-form">
+              <label for="layout-assistant-input">Describe your layout or theme</label>
+              <input
+                id="layout-assistant-input"
+                type="text"
+                maxlength="300"
+                placeholder="e.g. Make a warm ginger-cat theme with a compact layout"
+                autocomplete="off"
+                required
+              />
+              <button id="layout-assistant-submit" type="submit" class="primary-button">Generate &amp; apply CSS</button>
+            </form>
+            <p id="layout-assistant-status" class="layout-assistant-status" role="status" aria-live="polite">
+              Generated CSS is limited to approved dashboard layout and typography rules. The CSS changes this browser only; it does not edit or publish website source.
+            </p>
           </div>
         </div>
 
@@ -334,36 +393,19 @@
         <section class="panel panel-schedule" aria-labelledby="schedule-heading">
           <div class="panel-label" id="schedule-heading">DAILY SCHEDULE</div>
 
-          <ul class="schedule-list">
-            <li><span class="time">08:00</span><span class="event">Morning review</span></li>
-            <li><span class="time">09:30</span><span class="event">Math class</span></li>
-            <li><span class="time">11:00</span><span class="event">Science lab</span></li>
-            <li><span class="time">13:00</span><span class="event">Lunch + reset</span></li>
-            <li><span class="time">15:00</span><span class="event">Code practice</span></li>
-            <li><span class="time">18:30</span><span class="event">Homework block</span></li>
-          </ul>
+          <ul id="schedule-list" class="schedule-list" aria-live="polite"></ul>
         </section>
 
         <section class="panel panel-deadlines" aria-labelledby="deadlines-heading">
           <div class="panel-label" id="deadlines-heading">UPCOMING DEADLINES</div>
 
-          <ul class="deadline-list">
-            <li><span>Algebra quiz</span><strong>Thu 4:00 PM</strong></li>
-            <li><span>Lab report</span><strong>Fri 9:15 AM</strong></li>
-            <li><span>Essay draft</span><strong>Mon 2:30 PM</strong></li>
-            <li><span>GitHub task</span><strong>Wed 7:00 PM</strong></li>
-          </ul>
+          <ul id="deadline-list" class="deadline-list" aria-live="polite"></ul>
         </section>
 
         <section class="panel panel-priority" aria-labelledby="priority-heading">
           <div class="panel-label" id="priority-heading">TODAY'S PRIORITIES</div>
 
-          <ul id="priority-list" class="priority-list" aria-live="polite">
-            <li><input type="checkbox" checked /> <span>Finish math worksheet</span></li>
-            <li><input type="checkbox" /> <span>Review chemistry notes</span></li>
-            <li><input type="checkbox" /> <span>Push code project update</span></li>
-            <li><input type="checkbox" /> <span>Prep for lab discussion</span></li>
-          </ul>
+          <ul id="priority-list" class="priority-list" aria-live="polite"></ul>
         </section>
 
         <section class="panel panel-notes" aria-labelledby="notes-heading">
@@ -375,10 +417,13 @@
             aria-label="Class notes"
             placeholder="Write your focus notes here..."
           ></textarea>
+          <p id="notes-status" class="notes-status" role="status" aria-live="polite">
+            Notes save automatically on this device.
+          </p>
         </section>
       </section>
     </div>
 
-    <script src="script.js?v=20261014-1"></script>
+    <script src="script.js?v=20261104-shared-groq-ai"></script>
   </body>
 </html>

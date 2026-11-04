@@ -3,12 +3,24 @@
 
 const STORAGE_KEY = "prism.todos";
 const NOTES_KEY = "prism.notes";
+const SCHEDULE_KEY = "prism.schedule";
 const PROFILE_KEY = "prism.profile";
 const THEME_KEY = "prism.theme";
+const LAYOUT_KEY = "prism.layout";
+const AI_LAYOUT_CSS_KEY = "prism.aiLayoutCss";
+const FONT_KEY = "prism.font";
 const QUICK_LINKS_KEY = "prism.quickLinks";
 const CLASSROOM_TOKEN_KEY = "prism.classroomToken";
 const GOOGLE_CLIENT_ID = window.__PRISM_GOOGLE_CLIENT_ID__ || "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
 const GOOGLE_AUTH_ENABLED = window.__PRISM_GOOGLE_AUTH_ENABLED__ === true;
+const FONT_STACKS = {
+  system: '"SFMono-Regular", "Consolas", "Liberation Mono", monospace',
+  arial: "Arial, sans-serif",
+  verdana: "Verdana, sans-serif",
+  trebuchet: '"Trebuchet MS", sans-serif',
+  georgia: "Georgia, serif",
+  courier: '"Courier New", monospace'
+};
 
 function getProfile() {
   const saved = localStorage.getItem(PROFILE_KEY);
@@ -48,22 +60,7 @@ function getTodos() {
   const saved = localStorage.getItem(STORAGE_KEY);
 
   if (!saved) {
-    return [
-      {
-        id: Date.now(),
-        text: "Review math notes",
-        subject: "Math",
-        dueDate: "",
-        done: false
-      },
-      {
-        id: Date.now() + 1,
-        text: "Finish science lab",
-        subject: "Science",
-        dueDate: "",
-        done: false
-      }
-    ];
+    return [];
   }
 
   try {
@@ -72,7 +69,7 @@ function getTodos() {
       ? parsed.map((item) => ({
           ...item,
           subject: item.subject || "",
-          dueDate: item.dueDate || ""
+          dueDate: typeof item.dueDate === "string" ? item.dueDate : ""
         }))
       : [];
   } catch (error) {
@@ -101,11 +98,236 @@ function formatDueDate(dateString) {
   }).format(date);
 }
 
+function formatDeadlineDate(dateString) {
+  const date = new Date(`${dateString}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const deadline = new Date(date);
+  deadline.setHours(0, 0, 0, 0);
+
+  if (Number.isNaN(deadline.getTime())) {
+    return formatDueDate(dateString);
+  }
+  if (deadline.getTime() < today.getTime()) {
+    return `Overdue · ${formatDueDate(dateString)}`;
+  }
+  if (deadline.getTime() === today.getTime()) {
+    return "Today";
+  }
+  if (deadline.getTime() === tomorrow.getTime()) {
+    return "Tomorrow";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric"
+  }).format(date);
+}
+
+function renderTaskWidgets(todoItems) {
+  const deadlineList = document.getElementById("deadline-list");
+  const priorityList = document.getElementById("priority-list");
+
+  if (deadlineList) {
+    deadlineList.replaceChildren();
+    const datedTasks = todoItems
+      .filter((item) => !item.done && item.dueDate && !Number.isNaN(new Date(`${item.dueDate}T00:00:00`).getTime()))
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+
+    if (!datedTasks.length) {
+      const empty = document.createElement("li");
+      empty.className = "empty-widget-message";
+      empty.textContent = "Add a due date to a task to see it here.";
+      deadlineList.appendChild(empty);
+    } else {
+      datedTasks.forEach((item) => {
+        const row = document.createElement("li");
+        const task = document.createElement("span");
+        const due = document.createElement("strong");
+        task.textContent = item.text;
+        due.textContent = formatDeadlineDate(item.dueDate);
+        const dueDate = new Date(`${item.dueDate}T00:00:00`);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (dueDate < today) {
+          due.classList.add("overdue");
+        }
+        row.append(task, due);
+        deadlineList.appendChild(row);
+      });
+    }
+  }
+
+  if (priorityList) {
+    priorityList.replaceChildren();
+    const openTasks = todoItems
+      .filter((item) => !item.done)
+      .sort((a, b) => {
+        if (!a.dueDate) {
+          return b.dueDate ? 1 : 0;
+        }
+        if (!b.dueDate) {
+          return -1;
+        }
+        return a.dueDate.localeCompare(b.dueDate);
+      });
+
+    if (!openTasks.length) {
+      const empty = document.createElement("li");
+      empty.className = "empty-widget-message";
+      empty.textContent = "No open tasks. Add one in the task matrix.";
+      priorityList.appendChild(empty);
+      return;
+    }
+
+    openTasks.forEach((item) => {
+      const row = document.createElement("li");
+      const checkbox = document.createElement("input");
+      const label = document.createElement("span");
+
+      checkbox.type = "checkbox";
+      checkbox.checked = item.done;
+      checkbox.setAttribute("aria-label", `Mark task complete: ${item.text}`);
+      label.textContent = item.text;
+
+      checkbox.addEventListener("change", () => {
+        if (item.source === "classroom") {
+          checkbox.checked = item.done;
+          checkbox.disabled = true;
+          verifyClassroomSubmission(item).finally(() => {
+            checkbox.disabled = false;
+          });
+          return;
+        }
+
+        const updatedTodos = getTodos().map((todo) =>
+          todo.id === item.id ? { ...todo, done: checkbox.checked } : todo
+        );
+        saveTodos(updatedTodos);
+        renderTodos();
+      });
+
+      row.append(checkbox, label);
+      priorityList.appendChild(row);
+    });
+  }
+}
+
+function getSchedule() {
+  const saved = localStorage.getItem(SCHEDULE_KEY);
+  if (!saved) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed)
+      ? parsed.filter((item) => item && typeof item.id === "string" && typeof item.time === "string" && typeof item.event === "string")
+      : [];
+  } catch (error) {
+    console.warn("Could not parse the saved schedule.", error);
+    return [];
+  }
+}
+
+function saveSchedule(schedule) {
+  localStorage.setItem(SCHEDULE_KEY, JSON.stringify(schedule));
+}
+
+function renderSchedule() {
+  const schedule = getSchedule().sort((a, b) => a.time.localeCompare(b.time));
+  const dashboardList = document.getElementById("schedule-list");
+  const settingsList = document.getElementById("schedule-settings-list");
+
+  [dashboardList, settingsList].forEach((list) => {
+    if (!list) {
+      return;
+    }
+    list.replaceChildren();
+
+    if (!schedule.length) {
+      const empty = document.createElement("li");
+      empty.className = "empty-widget-message";
+      empty.textContent = list === settingsList
+        ? "No activities yet. Add one below."
+        : "Add your classes or activities in Settings → Schedule.";
+      list.appendChild(empty);
+      return;
+    }
+
+    schedule.forEach((item) => {
+      const row = document.createElement("li");
+      const time = document.createElement("span");
+      const event = document.createElement("span");
+      time.className = "time";
+      time.textContent = item.time;
+      event.className = "event";
+      event.textContent = item.event;
+      row.append(time, event);
+
+      if (list === settingsList) {
+        const removeButton = document.createElement("button");
+        removeButton.type = "button";
+        removeButton.className = "mini-delete";
+        removeButton.textContent = "Remove";
+        removeButton.setAttribute("aria-label", `Remove ${item.event} from schedule`);
+        removeButton.addEventListener("click", () => {
+          saveSchedule(getSchedule().filter((entry) => entry.id !== item.id));
+          renderSchedule();
+        });
+        row.appendChild(removeButton);
+      }
+
+      list.appendChild(row);
+    });
+  });
+}
+
+function initializeSchedule() {
+  const form = document.getElementById("schedule-form");
+  const timeInput = document.getElementById("schedule-time");
+  const eventInput = document.getElementById("schedule-event");
+
+  renderSchedule();
+  if (!form || !timeInput || !eventInput) {
+    return;
+  }
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const time = timeInput.value;
+    const activity = eventInput.value.trim();
+    if (!time || !activity) {
+      return;
+    }
+
+    const schedule = getSchedule();
+    schedule.push({
+      id: `schedule-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      time,
+      event: activity
+    });
+    saveSchedule(schedule);
+    renderSchedule();
+    form.reset();
+  });
+}
+
 function renderTodos() {
   const todoList = document.getElementById("todo-list");
   const todoItems = getTodos();
 
   todoList.innerHTML = "";
+
+  if (!todoItems.length) {
+    const empty = document.createElement("li");
+    empty.className = "empty-widget-message";
+    empty.textContent = "No tasks yet. Add one below.";
+    todoList.appendChild(empty);
+  }
 
   todoItems.forEach((item) => {
     const li = document.createElement("li");
@@ -231,6 +453,7 @@ function renderTodos() {
   });
 
   renderSubjectFocus(todoItems);
+  renderTaskWidgets(todoItems);
 }
 
 function formatPoints(points) {
@@ -443,32 +666,20 @@ function saveNotes(content) {
 
 function initializeNotes() {
   const notesInput = document.getElementById("notes-input");
+  const notesStatus = document.getElementById("notes-status");
 
   if (!notesInput) {
     return;
   }
 
   notesInput.value = loadNotes();
+  if (notesStatus && notesInput.value) {
+    notesStatus.textContent = "Your notes are saved on this device.";
+  }
   notesInput.addEventListener("input", (event) => {
     saveNotes(event.target.value);
-  });
-}
-
-function initializePriorityList() {
-  const priorityItems = document.querySelectorAll("#priority-list li");
-
-  priorityItems.forEach((item) => {
-    const checkbox = item.querySelector("input");
-    if (!checkbox) {
-      return;
-    }
-
-    checkbox.addEventListener("change", () => {
-      item.classList.toggle("done", checkbox.checked);
-    });
-
-    if (checkbox.checked) {
-      item.classList.add("done");
+    if (notesStatus) {
+      notesStatus.textContent = "Saved on this device.";
     }
   });
 }
@@ -1130,6 +1341,305 @@ function applyTheme(themeName) {
   });
 }
 
+function applyFont(fontName) {
+  const nextFont = Object.hasOwn(FONT_STACKS, fontName) ? fontName : "system";
+  document.documentElement.style.setProperty("--font-family", FONT_STACKS[nextFont]);
+  localStorage.setItem(FONT_KEY, nextFont);
+
+  const fontSelect = document.getElementById("font-choice");
+  if (fontSelect) {
+    fontSelect.value = nextFont;
+  }
+}
+
+function applyDashboardLayout(layoutName) {
+  const validLayouts = ["balanced", "compact", "spacious", "two-column", "one-column", "schedule-focus"];
+  const nextLayout = validLayouts.includes(layoutName) ? layoutName : "balanced";
+
+  document.body.dataset.layout = nextLayout;
+  localStorage.setItem(LAYOUT_KEY, nextLayout);
+  localStorage.removeItem(AI_LAYOUT_CSS_KEY);
+  document.getElementById("ai-layout-styles")?.remove();
+
+  document.querySelectorAll(".layout-preset").forEach((button) => {
+    const isActive = button.dataset.layoutChoice === nextLayout;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+
+  return nextLayout;
+}
+
+function sanitizeGeneratedCss(css) {
+  if (typeof css !== "string" || css.length > 5000) {
+    throw new Error("The generated CSS is empty or too long.");
+  }
+
+  const safeSelectors = new Set([
+    "body",
+    "body[data-theme]",
+    ".app-shell",
+    ".system-header",
+    ".dashboard-grid",
+    ".module-grid",
+    ".module-grid .panel",
+    ".panel",
+    ".panel-focus",
+    ".panel-schedule",
+    ".panel-deadlines",
+    ".panel-priority",
+    ".panel-notes",
+    ".panel-clock",
+    ".panel-todo",
+    ".panel-launch",
+    ".panel-label",
+    ".clock-time",
+    ".profile-overview",
+    ".todo-list",
+    ".launch-grid",
+    ".schedule-list",
+    ".deadline-list",
+    ".priority-list",
+    ".notes-input"
+  ]);
+  const safeFontFamilies = new Set(Object.values(FONT_STACKS));
+  const safeProperties = new Set([
+    "width", "max-width", "min-height", "grid-template-columns", "grid-column",
+    "display", "column-count", "gap", "row-gap", "column-gap", "padding",
+    "margin", "margin-top", "margin-bottom", "font-family", "font-size",
+    "font-weight", "letter-spacing", "line-height", "text-align",
+    "align-items", "justify-items", "justify-content",
+    "--bg-1", "--bg-2", "--panel", "--panel-alt", "--grid-line", "--text",
+    "--muted", "--green", "--cyan", "--pink", "--warning", "--shadow-green", "--shadow-cyan"
+  ]);
+  const source = css.trim();
+
+  if (!source || /[@<>\\]|\/\*|\*\/|url\s*\(|expression\s*\(|!important/i.test(source)) {
+    throw new Error("The generated CSS included unsupported or unsafe syntax.");
+  }
+
+  const rules = [];
+  const rulePattern = /\s*([^{}]+)\{([^{}]*)\}/gy;
+  let match;
+  let consumedLength = 0;
+  while ((match = rulePattern.exec(source)) !== null) {
+    consumedLength = rulePattern.lastIndex;
+    const selectors = match[1].split(",").map((selector) => selector.trim());
+    if (!selectors.length || selectors.some((selector) => !safeSelectors.has(selector))) {
+      throw new Error("The generated CSS tried to style something outside the dashboard layout.");
+    }
+
+    const declarations = [];
+    for (const rawDeclaration of match[2].split(";")) {
+      const declaration = rawDeclaration.trim();
+      if (!declaration) {
+        continue;
+      }
+      const separator = declaration.indexOf(":");
+      if (separator < 1) {
+        throw new Error("The generated CSS contains an invalid declaration.");
+      }
+
+      const property = declaration.slice(0, separator).trim().toLowerCase();
+      const value = declaration.slice(separator + 1).trim();
+      if (!safeProperties.has(property) || !isSafeLayoutCssValue(property, value, selectors, safeFontFamilies)) {
+        // Model output can contain harmless extra declarations. Keep only the
+        // independently validated allowlist instead of discarding a usable theme.
+        continue;
+      }
+      declarations.push(`${property}: ${value}`);
+    }
+
+    if (!declarations.length) {
+      throw new Error("The generated CSS did not include any usable layout changes.");
+    }
+    rules.push(`${selectors.join(", ")} { ${declarations.join("; ")}; }`);
+  }
+
+  if (!rules.length || consumedLength !== source.length) {
+    throw new Error("The generated CSS could not be safely parsed.");
+  }
+  return rules.join("\n");
+}
+
+function isSafeLayoutCssValue(property, value, selectors, safeFontFamilies) {
+  const isOnly = (...allowedSelectors) => selectors.every((selector) => allowedSelectors.includes(selector));
+  const isThemeProperty = property.startsWith("--");
+  const isThemeSelector = isOnly("body", "body[data-theme]");
+  if (isThemeProperty) {
+    if (!isThemeSelector) {
+      return false;
+    }
+    if (/^#[0-9a-fA-F]{6}$/.test(value)) {
+      return true;
+    }
+    const rgba = value.match(/^rgba\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(0(?:\.\d+)?|1(?:\.0+)?)\s*\)$/);
+    return rgba !== null && rgba.slice(1, 4).every((component) => Number(component) <= 255);
+  }
+  const lengths = value.split(/\s+/);
+  const isPixelLength = (item, max = 48) => {
+    const match = item.match(/^(\d+(?:\.\d+)?)px$/);
+    return match !== null && Number(match[1]) <= max;
+  };
+
+  if (["gap", "row-gap", "column-gap", "padding", "margin", "margin-top", "margin-bottom"].includes(property)) {
+    return lengths.length <= (["gap", "row-gap", "column-gap", "margin-top", "margin-bottom"].includes(property) ? 1 : 4)
+      && lengths.every((length) => isPixelLength(length));
+  }
+
+  switch (property) {
+    case "width":
+    case "max-width":
+      return isOnly(".app-shell") && /^(?:\d{3,4}px|100%)$/.test(value);
+    case "min-height":
+      return isOnly(".panel", ".panel-focus", ".panel-schedule", ".panel-deadlines", ".panel-priority", ".panel-notes", ".panel-clock", ".panel-todo", ".panel-launch")
+        && isPixelLength(value, 600);
+    case "grid-template-columns":
+      return isOnly(".dashboard-grid", ".module-grid", ".profile-overview")
+        && (/^repeat\(\s*[1-4]\s*,\s*minmax\(0,\s*1fr\)\s*\)$/.test(value)
+          || /^(?:\d+(?:\.\d+)?fr\s*){1,4}$/.test(value));
+    case "grid-column":
+      return selectors.every((selector) => selector.startsWith(".panel-"))
+        && /^(?:span [1-3]|1 \/ -1)$/.test(value);
+    case "display":
+      return isOnly(".dashboard-grid", ".module-grid", ".profile-overview") && value === "grid";
+    case "column-count":
+      return isOnly(".module-grid") && /^[1-4]$/.test(value);
+    case "font-family":
+      return safeFontFamilies.has(value);
+    case "font-size": {
+      const size = value.match(/^(\d+(?:\.\d+)?)(px|rem)$/);
+      if (!size) {
+        return false;
+      }
+      const amount = Number(size[1]);
+      return size[2] === "px" ? amount >= 12 && amount <= 64 : amount >= 0.75 && amount <= 4;
+    }
+    case "font-weight":
+      return /^(?:400|500|600|700|normal|bold)$/.test(value);
+    case "letter-spacing": {
+      const spacing = value.match(/^(-?\d+(?:\.\d+)?)(px|em)$/);
+      return spacing !== null && Number(spacing[1]) >= -0.2 && Number(spacing[1]) <= 0.5;
+    }
+    case "line-height": {
+      const height = Number(value);
+      return /^\d+(?:\.\d+)?$/.test(value) && height >= 1 && height <= 2;
+    }
+    case "text-align":
+      return /^(?:left|right|center)$/.test(value);
+    case "align-items":
+    case "justify-items":
+      return /^(?:start|end|center|stretch)$/.test(value);
+    case "justify-content":
+      return /^(?:start|end|center|stretch|space-between|space-around)$/.test(value);
+    default:
+      return false;
+  }
+}
+
+function applyGeneratedLayoutCss(css) {
+  const safeCss = sanitizeGeneratedCss(css);
+  localStorage.setItem(AI_LAYOUT_CSS_KEY, safeCss);
+  localStorage.setItem(LAYOUT_KEY, "ai");
+  document.body.dataset.layout = "ai";
+
+  let styleElement = document.getElementById("ai-layout-styles");
+  if (!styleElement) {
+    styleElement = document.createElement("style");
+    styleElement.id = "ai-layout-styles";
+    document.head.appendChild(styleElement);
+  }
+  styleElement.textContent = safeCss;
+
+  document.querySelectorAll(".layout-preset").forEach((button) => {
+    button.classList.remove("active");
+    button.setAttribute("aria-pressed", "false");
+  });
+}
+
+async function generateAiLayoutCss(request) {
+  const endpoint = window.__PRISM_LAYOUT_AI_ENDPOINT__;
+  if (!endpoint) {
+    throw new Error("The shared Groq AI service has not been configured yet.");
+  }
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ request })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result.error || `The shared AI service returned ${response.status}.`);
+  }
+  if (typeof result.css !== "string") {
+    throw new Error("The shared AI service did not return CSS.");
+  }
+  return result.css;
+}
+
+function initializeLayoutAssistant() {
+  const form = document.getElementById("layout-assistant-form");
+  const input = document.getElementById("layout-assistant-input");
+  const status = document.getElementById("layout-assistant-status");
+  const presetButtons = document.querySelectorAll(".layout-preset");
+
+  if (!form || !input || !status) {
+    return;
+  }
+
+  const storedLayout = localStorage.getItem(LAYOUT_KEY) || "balanced";
+  if (storedLayout === "ai") {
+    const savedCss = localStorage.getItem(AI_LAYOUT_CSS_KEY);
+    if (savedCss) {
+      try {
+        applyGeneratedLayoutCss(savedCss);
+      } catch (error) {
+        console.warn("Saved AI layout was rejected.", error);
+        applyDashboardLayout("balanced");
+      }
+    } else {
+      applyDashboardLayout("balanced");
+    }
+  } else {
+    applyDashboardLayout(storedLayout);
+  }
+
+  presetButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      applyDashboardLayout(button.dataset.layoutChoice);
+      status.textContent = "Applied the selected preset layout.";
+    });
+  });
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const request = input.value.trim();
+    if (!request) {
+      status.textContent = "Describe the layout or theme you want.";
+      return;
+    }
+
+    const submitButton = document.getElementById("layout-assistant-submit");
+    submitButton.disabled = true;
+    status.textContent = "Asking the shared Groq AI service to generate a layout or theme...";
+
+    generateAiLayoutCss(request)
+      .then((css) => {
+        applyGeneratedLayoutCss(css);
+        status.textContent = "AI-generated layout or theme applied. It is saved only in this browser and can be replaced with a preset.";
+        input.value = "";
+      })
+      .catch((error) => {
+        console.error("AI layout generation failed.", error);
+        status.textContent = `Could not apply the AI layout or theme: ${error.message}`;
+      })
+      .finally(() => {
+        submitButton.disabled = false;
+      });
+  });
+}
+
 function getDefaultQuickLinks() {
   return [
     { id: "google", name: "Google", url: "https://www.google.com" },
@@ -1299,12 +1809,21 @@ function initializeSettingsNavigation() {
 
   const storedTheme = localStorage.getItem(THEME_KEY) || "cyberpunk";
   applyTheme(storedTheme);
+  applyFont(localStorage.getItem(FONT_KEY) || "system");
+  initializeLayoutAssistant();
 
   document.querySelectorAll(".theme-option").forEach((button) => {
     button.addEventListener("click", () => {
       applyTheme(button.dataset.theme);
     });
   });
+
+  const fontSelect = document.getElementById("font-choice");
+  if (fontSelect) {
+    fontSelect.addEventListener("change", () => {
+      applyFont(fontSelect.value);
+    });
+  }
 }
 
 function initializeProfileSetup() {
@@ -1397,7 +1916,7 @@ function initializeDashboard() {
   // until the page is reloaded.
   renderTodos();
   initializeNotes();
-  initializePriorityList();
+  initializeSchedule();
   initializeQuickLinks();
   initializeClassroomSync();
 
