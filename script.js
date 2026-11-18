@@ -1849,14 +1849,19 @@ async function teacherApiRequest(path, payload = {}) {
     throw new Error("Sign in with Google to continue.");
   }
 
-  const response = await fetch(`${TEACHER_API_BASE_URL}${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  });
+  let response;
+  try {
+    response = await fetch(`${TEACHER_API_BASE_URL}${path}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch (error) {
+    throw new Error("Could not reach the teacher permissions service. Check your internet connection and the site's Worker configuration.");
+  }
   let result;
   try {
     result = await response.json();
