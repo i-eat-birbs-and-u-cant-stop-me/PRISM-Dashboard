@@ -26,6 +26,8 @@ Homework tasks and due dates drive the priorities and upcoming-deadlines panels.
 
 Color themes and font choices are independent. Choose a typeface from Settings -> Themes. Settings -> Layout AI includes ready-made layouts and a Groq-powered CSS generator. Generated CSS is checked against a browser-side allowlist and saved only in that browser; it does not modify or publish the website source.
 
+Settings -> Teacher Controls includes a local on/off preference for future teacher dashboard controls. Teacher and student accounts are not connected yet, so enabling it does not currently share or change dashboard data.
+
 ### Configure shared Groq layout AI
 
 The static GitHub Pages site must not contain a Groq API key. The optional Cloudflare Worker in `workers/layout-ai.mjs` keeps the shared key server-side and applies a per-IP rate limit.

@@ -8,7 +8,7 @@
       name="description"
       content="Personal Routine Interface for Student Management"
     />
-    <link rel="stylesheet" href="style.css?v=20261104-shared-groq-ai" />
+    <link rel="stylesheet" href="style.css?v=20261118-teacher-controls" />
     <script>
       window.__PRISM_GOOGLE_CLIENT_ID__ = "170006870019-ckb9b2mvfaqhcvchdj64gd251s02k3bt.apps.googleusercontent.com";
       window.__PRISM_GOOGLE_AUTH_ENABLED__ = true;
@@ -110,6 +110,7 @@
           <button type="button" class="menu-item" data-panel="links">Links</button>
           <button type="button" class="menu-item" data-panel="themes">Themes</button>
           <button type="button" class="menu-item" data-panel="layout-assistant">Layout AI</button>
+          <button type="button" class="menu-item" data-panel="teacher-controls">Teacher Controls</button>
           <button type="button" class="menu-item" data-panel="system-logs">System Logs</button>
         </div>
 
@@ -296,6 +297,26 @@
           </div>
         </div>
 
+        <div id="teacher-controls-panel" class="settings-panel" data-panel="teacher-controls" aria-label="Teacher controls panel">
+          <div class="settings-panel-block">
+            <h3>Teacher controls</h3>
+            <p class="layout-assistant-description">
+              Turn on the teacher-controls option for this dashboard. Teacher and student accounts are not connected yet, so this setting only saves your preference on this device.
+            </p>
+            <label class="teacher-control-toggle" for="teacher-controls-enabled">
+              <span class="teacher-control-copy">
+                <strong>Enable teacher controls</strong>
+                <small>Allow a teacher to manage this student dashboard when that feature is available.</small>
+              </span>
+              <input id="teacher-controls-enabled" type="checkbox" role="switch" aria-checked="false" />
+              <span class="teacher-control-switch" aria-hidden="true"></span>
+            </label>
+            <p id="teacher-controls-status" class="teacher-controls-status" role="status" aria-live="polite">
+              Teacher controls are off.
+            </p>
+          </div>
+        </div>
+
         <div id="system-logs-panel" class="settings-panel" data-panel="system-logs" aria-label="System logs panel">
           <div class="settings-panel-block">
             <h3>System logs</h3>
@@ -424,6 +445,6 @@
       </section>
     </div>
 
-    <script src="script.js?v=20261104-shared-groq-ai"></script>
+    <script src="script.js?v=20261118-teacher-controls"></script>
   </body>
 </html>

@@ -9,6 +9,7 @@ const THEME_KEY = "prism.theme";
 const LAYOUT_KEY = "prism.layout";
 const AI_LAYOUT_CSS_KEY = "prism.aiLayoutCss";
 const FONT_KEY = "prism.font";
+const TEACHER_CONTROLS_KEY = "prism.teacherControlsEnabled";
 const QUICK_LINKS_KEY = "prism.quickLinks";
 const CLASSROOM_TOKEN_KEY = "prism.classroomToken";
 const GOOGLE_CLIENT_ID = window.__PRISM_GOOGLE_CLIENT_ID__ || "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
@@ -1810,6 +1811,7 @@ function initializeSettingsNavigation() {
   const storedTheme = localStorage.getItem(THEME_KEY) || "cyberpunk";
   applyTheme(storedTheme);
   applyFont(localStorage.getItem(FONT_KEY) || "system");
+  initializeTeacherControls();
   initializeLayoutAssistant();
 
   document.querySelectorAll(".theme-option").forEach((button) => {
@@ -1824,6 +1826,28 @@ function initializeSettingsNavigation() {
       applyFont(fontSelect.value);
     });
   }
+}
+
+function initializeTeacherControls() {
+  const toggle = document.getElementById("teacher-controls-enabled");
+  const status = document.getElementById("teacher-controls-status");
+  if (!toggle || !status) {
+    return;
+  }
+
+  const updateStatus = (enabled) => {
+    toggle.setAttribute("aria-checked", String(enabled));
+    status.textContent = enabled
+      ? "Teacher controls are on for this device."
+      : "Teacher controls are off.";
+  };
+
+  toggle.checked = localStorage.getItem(TEACHER_CONTROLS_KEY) === "true";
+  updateStatus(toggle.checked);
+  toggle.addEventListener("change", () => {
+    localStorage.setItem(TEACHER_CONTROLS_KEY, String(toggle.checked));
+    updateStatus(toggle.checked);
+  });
 }
 
 function initializeProfileSetup() {
