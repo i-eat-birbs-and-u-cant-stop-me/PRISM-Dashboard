@@ -252,7 +252,8 @@ async function handleTeacherApi(request, env, pathname, origin) {
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("Origin");
-    if (!origin || origin !== env.ALLOWED_ORIGIN) {
+    const isLoopbackOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin || "");
+    if (!origin || (origin !== env.ALLOWED_ORIGIN && !isLoopbackOrigin)) {
       return jsonResponse({ error: "This origin is not allowed." }, 403);
     }
 

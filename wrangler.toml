@@ -11,7 +11,7 @@ TEACHER_DASHBOARD_URL = "https://i-eat-birbs-and-u-cant-stop-me.github.io/PRISM-
 [[d1_databases]]
 binding = "TEACHER_DB"
 database_name = "prism-teacher-permissions"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "9f8254f4-177f-4dc8-b203-b0ccb4ccdd81"
 migrations_dir = "migrations"
 
 [[ratelimits]]
