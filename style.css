@@ -472,84 +472,76 @@ body.dashboard-ready .auth-screen {
   padding: 0 2px;
 }
 
-.teacher-control-toggle {
-  position: relative;
+.teacher-permission-actions {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin-top: 14px;
+  justify-content: flex-start;
+  margin-top: 12px;
+}
+
+.teacher-request-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.teacher-request-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding: 12px;
   background: rgba(4, 10, 14, 0.7);
   border: 1px solid rgba(79, 231, 255, 0.2);
-  color: var(--text);
-  cursor: pointer;
 }
 
-.teacher-control-copy {
+.teacher-request-card > div:first-child {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  overflow-wrap: anywhere;
 }
 
-.teacher-control-copy strong {
+.teacher-request-card strong {
   color: var(--text);
   font-size: 0.76rem;
 }
 
-.teacher-control-copy small {
-  color: var(--muted);
-  font-size: 0.68rem;
-  line-height: 1.5;
-}
-
-.teacher-control-toggle input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-}
-
-.teacher-control-switch {
-  flex: 0 0 42px;
-  width: 42px;
-  height: 24px;
-  padding: 3px;
-  border: 1px solid rgba(79, 231, 255, 0.35);
-  border-radius: 999px;
-  background: rgba(9, 16, 20, 0.9);
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.teacher-control-switch::before {
-  display: block;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--muted);
-  content: "";
-  transition: transform 0.15s ease, background 0.15s ease;
-}
-
-.teacher-control-toggle input:checked + .teacher-control-switch {
-  border-color: var(--green);
-  background: rgba(94, 242, 201, 0.14);
-}
-
-.teacher-control-toggle input:checked + .teacher-control-switch::before {
-  transform: translateX(18px);
-  background: var(--green);
-}
-
-.teacher-control-toggle input:focus-visible + .teacher-control-switch {
-  outline: 2px solid var(--cyan);
-  outline-offset: 3px;
-}
-
-.teacher-controls-status {
-  margin: 10px 0 0;
+.teacher-request-card span {
   color: var(--muted);
   font-size: 0.7rem;
+}
+
+.teacher-request-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.teacher-approve-button {
+  border: 1px solid var(--green);
+  background: rgba(94, 242, 201, 0.08);
+  color: var(--green);
+  padding: 6px 8px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.teacher-approve-button:disabled,
+.teacher-request-buttons .mini-delete:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.teacher-permission-actions[hidden],
+#teacher-admin-review[hidden] {
+  display: none;
+}
+
+#teacher-permission-message {
+  overflow-wrap: anywhere;
 }
 
 .menu-item {

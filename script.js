@@ -9,9 +9,10 @@ const THEME_KEY = "prism.theme";
 const LAYOUT_KEY = "prism.layout";
 const AI_LAYOUT_CSS_KEY = "prism.aiLayoutCss";
 const FONT_KEY = "prism.font";
-const TEACHER_CONTROLS_KEY = "prism.teacherControlsEnabled";
 const QUICK_LINKS_KEY = "prism.quickLinks";
 const CLASSROOM_TOKEN_KEY = "prism.classroomToken";
+const TEACHER_API_BASE_URL = window.__PRISM_TEACHER_API_BASE_URL__ || "";
+const TEACHER_ACCESS_TOKEN_KEY = "prism.teacherAccessToken";
 const GOOGLE_CLIENT_ID = window.__PRISM_GOOGLE_CLIENT_ID__ || "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
 const GOOGLE_AUTH_ENABLED = window.__PRISM_GOOGLE_AUTH_ENABLED__ === true;
 const FONT_STACKS = {
@@ -752,12 +753,14 @@ function hideDashboard() {
 function logoutFromDashboard() {
   localStorage.removeItem(PROFILE_KEY);
   localStorage.removeItem(CLASSROOM_TOKEN_KEY);
+  sessionStorage.removeItem(TEACHER_ACCESS_TOKEN_KEY);
   location.reload();
 }
 
 function resetProfileFromDashboard() {
   localStorage.removeItem(PROFILE_KEY);
   localStorage.removeItem(CLASSROOM_TOKEN_KEY);
+  sessionStorage.removeItem(TEACHER_ACCESS_TOKEN_KEY);
 
   const profileForm = document.getElementById("profile-form");
   if (profileForm) {
@@ -806,6 +809,12 @@ function handleGoogleTokenResponse(tokenResponse, purpose) {
       expiresAt
     }));
     syncClassroomAssignments();
+    return;
+  }
+
+  sessionStorage.setItem(TEACHER_ACCESS_TOKEN_KEY, tokenResponse.access_token);
+  if (purpose === "teacher") {
+    loadTeacherPermissions();
     return;
   }
 
@@ -1805,13 +1814,16 @@ function initializeSettingsNavigation() {
       panels.forEach((panel) => {
         panel.classList.toggle("active", panel.dataset.panel === selectedPanel);
       });
+      if (selectedPanel === "teacher-controls") {
+        loadTeacherPermissions();
+      }
     });
   });
 
   const storedTheme = localStorage.getItem(THEME_KEY) || "cyberpunk";
   applyTheme(storedTheme);
   applyFont(localStorage.getItem(FONT_KEY) || "system");
-  initializeTeacherControls();
+  initializeTeacherPermissions();
   initializeLayoutAssistant();
 
   document.querySelectorAll(".theme-option").forEach((button) => {
@@ -1828,26 +1840,174 @@ function initializeSettingsNavigation() {
   }
 }
 
-function initializeTeacherControls() {
-  const toggle = document.getElementById("teacher-controls-enabled");
-  const status = document.getElementById("teacher-controls-status");
-  if (!toggle || !status) {
+async function teacherApiRequest(path, payload = {}) {
+  if (!TEACHER_API_BASE_URL) {
+    throw new Error("The teacher permissions service is not configured for this site.");
+  }
+  const accessToken = sessionStorage.getItem(TEACHER_ACCESS_TOKEN_KEY);
+  if (!accessToken) {
+    throw new Error("Sign in with Google to continue.");
+  }
+
+  const response = await fetch(`${TEACHER_API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+  let result;
+  try {
+    result = await response.json();
+  } catch (error) {
+    throw new Error("The teacher permissions service returned an invalid response.");
+  }
+  if (!response.ok) {
+    if (response.status === 401) {
+      sessionStorage.removeItem(TEACHER_ACCESS_TOKEN_KEY);
+    }
+    throw new Error(result.error || "The teacher permissions request failed.");
+  }
+  return result;
+}
+
+function setTeacherPermissionMessage(message) {
+  const status = document.getElementById("teacher-permission-message");
+  if (status) {
+    status.textContent = message;
+  }
+}
+
+function renderTeacherRequests(requests) {
+  const list = document.getElementById("teacher-request-list");
+  if (!list) {
+    return;
+  }
+  list.replaceChildren();
+
+  if (!requests.length) {
+    const empty = document.createElement("li");
+    empty.className = "empty-widget-message";
+    empty.textContent = "No pending teacher requests.";
+    list.appendChild(empty);
     return;
   }
 
-  const updateStatus = (enabled) => {
-    toggle.setAttribute("aria-checked", String(enabled));
-    status.textContent = enabled
-      ? "Teacher controls are on for this device."
-      : "Teacher controls are off.";
-  };
+  requests.forEach((request) => {
+    const item = document.createElement("li");
+    item.className = "teacher-request-card";
+    const details = document.createElement("div");
+    const name = document.createElement("strong");
+    const email = document.createElement("span");
+    const actions = document.createElement("div");
+    name.textContent = request.requester_name || "Google user";
+    email.textContent = request.requester_email;
+    actions.className = "teacher-request-buttons";
 
-  toggle.checked = localStorage.getItem(TEACHER_CONTROLS_KEY) === "true";
-  updateStatus(toggle.checked);
-  toggle.addEventListener("change", () => {
-    localStorage.setItem(TEACHER_CONTROLS_KEY, String(toggle.checked));
-    updateStatus(toggle.checked);
+    ["approve", "deny"].forEach((decision) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = decision === "approve" ? "teacher-approve-button" : "mini-delete";
+      button.textContent = decision === "approve" ? "Approve" : "Deny";
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        try {
+          await teacherApiRequest("/teacher/review", {
+            userSub: request.user_sub,
+            decision
+          });
+          setTeacherPermissionMessage(
+            decision === "approve"
+              ? `Teacher access approved for ${request.requester_email}.`
+              : `Teacher access denied for ${request.requester_email}.`
+          );
+          await loadTeacherPermissions();
+        } catch (error) {
+          button.disabled = false;
+          setTeacherPermissionMessage(error.message);
+        }
+      });
+      actions.appendChild(button);
+    });
+
+    details.append(name, email);
+    item.append(details, actions);
+    list.appendChild(item);
   });
+}
+
+async function loadTeacherPermissions() {
+  const authControls = document.getElementById("teacher-google-auth");
+  const requestControls = document.getElementById("teacher-request-actions");
+  const adminPanel = document.getElementById("teacher-admin-review");
+  if (!authControls || !requestControls || !adminPanel) {
+    return;
+  }
+
+  if (!sessionStorage.getItem(TEACHER_ACCESS_TOKEN_KEY)) {
+    authControls.hidden = false;
+    requestControls.hidden = true;
+    adminPanel.hidden = true;
+    setTeacherPermissionMessage("Sign in with Google to request or manage teacher permissions.");
+    return;
+  }
+
+  authControls.hidden = true;
+  requestControls.hidden = true;
+  adminPanel.hidden = true;
+  setTeacherPermissionMessage("Checking teacher permissions...");
+  try {
+    const result = await teacherApiRequest("/teacher/status");
+    if (result.isAdmin) {
+      setTeacherPermissionMessage("You are signed in as the teacher permissions administrator.");
+      adminPanel.hidden = false;
+      renderTeacherRequests(result.pendingRequests || []);
+      return;
+    }
+    if (result.isTeacher) {
+      setTeacherPermissionMessage("Teacher permissions approved for this Google account.");
+      return;
+    }
+    if (result.request?.status === "pending") {
+      setTeacherPermissionMessage("Your teacher access request is waiting for administrator approval.");
+      return;
+    }
+
+    if (result.request?.status === "denied") {
+      setTeacherPermissionMessage("Your previous teacher access request was denied. You may submit another request.");
+    } else {
+      setTeacherPermissionMessage("This Google account does not have teacher permissions yet.");
+    }
+    requestControls.hidden = false;
+  } catch (error) {
+    authControls.hidden = !sessionStorage.getItem(TEACHER_ACCESS_TOKEN_KEY);
+    setTeacherPermissionMessage(error.message);
+  }
+}
+
+function initializeTeacherPermissions() {
+  const signInButton = document.getElementById("teacher-google-sign-in");
+  const requestButton = document.getElementById("teacher-request-button");
+  const refreshButton = document.getElementById("teacher-requests-refresh");
+
+  signInButton?.addEventListener("click", () => {
+    beginGoogleAuthorization("teacher");
+  });
+  requestButton?.addEventListener("click", async () => {
+    requestButton.disabled = true;
+    setTeacherPermissionMessage("Submitting teacher access request...");
+    try {
+      await teacherApiRequest("/teacher/request");
+      setTeacherPermissionMessage("Request sent. You will be notified after the administrator reviews it.");
+      await loadTeacherPermissions();
+    } catch (error) {
+      setTeacherPermissionMessage(error.message);
+    } finally {
+      requestButton.disabled = false;
+    }
+  });
+  refreshButton?.addEventListener("click", loadTeacherPermissions);
 }
 
 function initializeProfileSetup() {

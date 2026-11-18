@@ -8,11 +8,12 @@
       name="description"
       content="Personal Routine Interface for Student Management"
     />
-    <link rel="stylesheet" href="style.css?v=20261118-teacher-controls" />
+    <link rel="stylesheet" href="style.css?v=20261118-teacher-approval" />
     <script>
       window.__PRISM_GOOGLE_CLIENT_ID__ = "170006870019-ckb9b2mvfaqhcvchdj64gd251s02k3bt.apps.googleusercontent.com";
       window.__PRISM_GOOGLE_AUTH_ENABLED__ = true;
       window.__PRISM_LAYOUT_AI_ENDPOINT__ = "https://prism-layout-ai.giladcaldwell11.workers.dev/generate";
+      window.__PRISM_TEACHER_API_BASE_URL__ = "https://prism-layout-ai.giladcaldwell11.workers.dev";
     </script>
   </head>
   <body>
@@ -301,19 +302,25 @@
           <div class="settings-panel-block">
             <h3>Teacher controls</h3>
             <p class="layout-assistant-description">
-              Turn on the teacher-controls option for this dashboard. Teacher and student accounts are not connected yet, so this setting only saves your preference on this device.
+              Teacher permissions require approval. Sign in with Google to request access or review requests as the administrator.
             </p>
-            <label class="teacher-control-toggle" for="teacher-controls-enabled">
-              <span class="teacher-control-copy">
-                <strong>Enable teacher controls</strong>
-                <small>Allow a teacher to manage this student dashboard when that feature is available.</small>
-              </span>
-              <input id="teacher-controls-enabled" type="checkbox" role="switch" aria-checked="false" />
-              <span class="teacher-control-switch" aria-hidden="true"></span>
-            </label>
-            <p id="teacher-controls-status" class="teacher-controls-status" role="status" aria-live="polite">
-              Teacher controls are off.
+            <p id="teacher-permission-message" class="integration-status" role="status" aria-live="polite">
+              Sign in with Google to check teacher permissions.
             </p>
+            <div id="teacher-google-auth" class="teacher-permission-actions">
+              <button id="teacher-google-sign-in" type="button" class="primary-button">Sign in with Google</button>
+            </div>
+            <div id="teacher-request-actions" class="teacher-permission-actions" hidden>
+              <button id="teacher-request-button" type="button" class="primary-button">Request teacher access</button>
+            </div>
+          </div>
+
+          <div id="teacher-admin-review" class="settings-panel-block" hidden>
+            <h3>Teacher access requests</h3>
+            <ul id="teacher-request-list" class="teacher-request-list" aria-live="polite"></ul>
+            <div class="settings-actions">
+              <button id="teacher-requests-refresh" type="button" class="primary-button">Refresh requests</button>
+            </div>
           </div>
         </div>
 
@@ -445,6 +452,6 @@
       </section>
     </div>
 
-    <script src="script.js?v=20261118-teacher-controls"></script>
+    <script src="script.js?v=20261118-teacher-approval"></script>
   </body>
 </html>
